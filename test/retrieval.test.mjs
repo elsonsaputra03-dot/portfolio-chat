@@ -39,3 +39,8 @@ test("Indonesian terms expand to the English vocabulary of the sources", () => {
 test("every chunk links back to a published source", () => {
   for (const c of kb.chunks) assert.match(c.url, /^https:\/\/(elsonsaputra03-dot\.github\.io|github\.com\/elsonsaputra03-dot)\//);
 });
+
+
+test("the chat box itself is not part of the knowledge base", () => {
+  assert.ok(!kb.chunks.some(c => c.url.endsWith("#ask-portfolio") || /Ask about my work/.test(c.title)));
+});

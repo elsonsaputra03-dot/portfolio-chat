@@ -7,6 +7,7 @@ const OWNER = "elsonsaputra03-dot";
 const SITE = "https://elsonsaputra03-dot.github.io/indo-realtime-monitor/";
 const REPOS = ["indo-realtime-monitor", "bq-governance-toolkit", "app-tagging-stream", "mysql-to-postgres"];
 const MAX = 1400;
+const SKIP_SECTIONS = new Set(["ask-portfolio"]);
 
 const raw = (repo, path) => `https://raw.githubusercontent.com/${OWNER}/${repo}/main/${path}`;
 const decode = s => s.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'")
@@ -31,6 +32,9 @@ export function fromPortfolio(html) {
   if (hero) chunks.push(...split("Portfolio overview", text(hero[0]), SITE, "portfolio"));
   for (const m of html.matchAll(/<section[^>]*id="([^"]+)"[^>]*>([\s\S]*?)<\/section>/g)) {
     const [, id, body] = m;
+    // Kotak tanya chatbot ini sendiri bukan pengetahuan: contoh pertanyaannya ("What did Elson build with Kafka?") sempat
+    // masuk indeks dan mengalahkan sumber sebenarnya, sehingga chatbot mengutip antarmukanya sendiri (ditemukan oleh CI).
+    if (SKIP_SECTIONS.has(id)) continue;
     // Elemen daftar (kartu proyek, peran kerja, kelompok keahlian, sertifikat) dipotong dari tag pembukanya sampai tag
     // pembuka berikutnya. Pola "<div ...>...</div>" tidak bisa dipakai: <div class="job"> berisi <div> lain, sehingga
     // pencocokan berhenti di </div> pertama dan hanya mengambil tanggal (ditemukan saat membangun indeks pertama kali).
