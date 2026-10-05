@@ -1,0 +1,13 @@
+{
+  "name": "portfolio-chat",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Ask questions about Elson Saputra's portfolio: retrieval over the published portfolio and project READMEs, answers by Gemini with citations, served from a Cloudflare Worker.",
+  "scripts": {
+    "build-kb": "node scripts/build-kb.mjs",
+    "test": "node --test test/*.test.mjs",
+    "deploy": "npm run build-kb && npx wrangler deploy"
+  },
+  "license": "MIT"
+}
