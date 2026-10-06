@@ -46,8 +46,11 @@ export function fromPortfolio(html) {
         const t = text((seg.match(/<h3[^>]*>([\s\S]*?)<\/h3>/) || [, ""])[1]) || text((seg.match(/<(?:b|strong)[^>]*>([\s\S]*?)<\/(?:b|strong)>/) || [, head])[1]);
         let body2 = text(seg);
         if (id === "experience") {
-          // label bentukan dari data yang sama, supaya "current role" menemukan entri "… – Present" (bukan fakta baru)
-          body2 = `Role: ${t}${/Present/.test(body2) ? " (current role)" : ""}. ${body2}`;
+          // label bentukan dari data yang sama (bukan fakta baru): entri teratas adalah peran terbaru; "current" hanya bila
+          // tertulis Present. Setelah peran terakhir berakhir (Jun 2026), "current role" harus menemukan peran terbaru itu
+          // dan jawabannya menyebut tanggal berakhirnya, bukan menganggapnya masih berjalan.
+          const label = /Present/.test(body2) ? " (current role)" : k === 0 ? " (most recent role)" : "";
+          body2 = `Role: ${t}${label}. ${body2}`;
         }
         split(`${head}: ${t}`, body2, `${SITE}#${id}`, "portfolio").forEach(c => chunks.push(c));
       });

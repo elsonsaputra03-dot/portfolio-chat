@@ -35,6 +35,7 @@ const ID_EN = {
   kebakaran: "hotspot fire", udara: "air quality", harga: "price prices", pangan: "food", berita: "news", jaringan: "network",
   pelanggan: "subscriber", migrasi: "migration", tahun: "years", sekarang: "present current", domisili: "based", tinggal: "based",
   lokasi: "based location", pendidikan: "education", kampus: "education", alat: "tools", bahasa: "languages", vendor: "vendors",
+  current: "current recent", latest: "recent", now: "recent", noc: "noc network operations center omc",
 };
 
 export function expand(query) {
