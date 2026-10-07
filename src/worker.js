@@ -26,10 +26,10 @@ function userPrompt(question, hits) {
 
 const lang = q => (/\b(apa|apakah|siapa|bagaimana|berapa|dimana|kapan|kenapa|mengapa|yang|dan|di|dengan|pengalaman|proyek|keahlian)\b/i.test(q) ? "id" : "en");
 const MSG = {
-  refused: { en: "I can only answer questions about Elson's professional work and projects. For anything else, please contact him directly (see Contact on the portfolio).",
-             id: "Saya hanya bisa menjawab pertanyaan tentang pekerjaan dan proyek profesional Elson. Untuk hal lain, silakan hubungi beliau langsung (lihat bagian Contact di portofolio)." },
-  not_found: { en: "That isn't covered in the portfolio or the project READMEs. You can ask Elson directly via the Contact section.",
-               id: "Hal itu tidak ada di portofolio maupun README proyek. Silakan tanyakan langsung ke Elson lewat bagian Contact." },
+  refused: { en: "I can only answer questions about Elson's professional work and projects. For anything else, you can ask him directly below.",
+             id: "Saya hanya bisa menjawab pertanyaan tentang pekerjaan dan proyek profesional Elson. Untuk hal lain, silakan tanyakan langsung ke Elson di bawah ini." },
+  not_found: { en: "That isn't covered in the portfolio or the project READMEs. You can ask Elson directly below.",
+               id: "Hal itu tidak ada di portofolio maupun README proyek. Silakan tanyakan langsung ke Elson di bawah ini." },
   extractive: { en: "The AI answer is unavailable right now; these are the most relevant parts of the portfolio:",
                 id: "Jawaban AI sedang tidak tersedia; berikut bagian portofolio yang paling relevan:" },
 };
@@ -73,6 +73,63 @@ export async function answer(question, env, { fetchImpl = fetch } = {}) {
   }
 }
 
+// ---------------------------------------------------------------- pesan langsung ke Elson (Telegram)
+// Pengunjung meninggalkan pertanyaan + email/WhatsApp; Worker meneruskannya ke Telegram Elson dan TIDAK menyimpannya.
+// Secret: TELEGRAM_BOT_TOKEN dan TELEGRAM_CHAT_ID (npx wrangler secret put ...).
+const MAX_MSG = 500;
+const EMAIL = /^[^\s@<>()"',;:]{1,64}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{2,24}$/;
+
+export function parseContact(raw) {
+  const s = String(raw || "").trim();
+  if (EMAIL.test(s)) return { kind: "email", value: s.toLowerCase() };
+  const digits = s.replace(/[\s().-]/g, "");
+  if (/^\+?\d{9,15}$/.test(digits)) {
+    let d = digits.replace(/^\+/, "");
+    if (d.startsWith("0")) d = "62" + d.slice(1);              // 0812... -> 62812...
+    if (/^8\d{8,12}$/.test(d)) d = "62" + d;                    // 812... -> 62812...
+    if (/^\d{10,15}$/.test(d)) return { kind: "phone", value: d };
+  }
+  return null;
+}
+
+const htmlEsc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+export function telegramMessage({ name, contact, question, aiAnswer, page }) {
+  const greet = name ? `Halo ${name}` : "Halo";
+  const reply = `${greet}, terima kasih sudah bertanya di portofolio saya: "${question.slice(0, 200)}"\n\n`;
+  const text = [
+    "📩 <b>Pertanyaan baru dari portofolio</b>",
+    name ? `<b>Nama:</b> ${htmlEsc(name)}` : null,
+    `<b>Kontak:</b> ${contact.kind === "email" ? htmlEsc(contact.value) : "+" + contact.value} (${contact.kind === "email" ? "email" : "WhatsApp"})`,
+    "", `<b>Pertanyaan:</b>\n${htmlEsc(question)}`,
+    aiAnswer ? `\n<b>Jawaban AI yang sudah dilihat pengunjung:</b>\n<i>${htmlEsc(aiAnswer.slice(0, 600))}</i>` : null,
+    page ? `\n<a href="${htmlEsc(page)}">Halaman asal</a>` : null,
+  ].filter(x => x !== null).join("\n");
+  const button = contact.kind === "phone"
+    ? { text: "Balas via WhatsApp", url: `https://wa.me/${contact.value}?text=${encodeURIComponent(reply)}` }
+    : { text: "Balas via email", url: `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(contact.value)}`
+          + `&su=${encodeURIComponent("Re: pertanyaan di portofolio Elson Saputra")}&body=${encodeURIComponent(reply)}` };
+  return { text, parse_mode: "HTML", disable_web_page_preview: true, reply_markup: { inline_keyboard: [[button]] } };
+}
+
+export async function contactElson(body, env, { fetchImpl = fetch } = {}) {
+  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) return [503, { error: "direct messages are not set up yet" }];
+  if (String(body?.website || "")) return [200, { ok: true }];                    // honeypot: bot mengisi kolom tersembunyi
+  const question = String(body?.question || "").trim(), name = String(body?.name || "").trim().slice(0, 60);
+  if (question.length < 5) return [400, { error: "please write your question" }];
+  if (question.length > MAX_MSG) return [400, { error: `message is longer than ${MAX_MSG} characters` }];
+  const contact = parseContact(body?.contact);
+  if (!contact) return [400, { error: "please enter a valid email or WhatsApp number" }];
+  if (body?.consent !== true) return [400, { error: "please agree to share your contact with Elson" }];
+  const page = /^https:\/\/elsonsaputra03-dot\.github\.io\//.test(String(body?.page || "")) ? String(body.page) : "";
+  const msg = telegramMessage({ name, contact, question, aiAnswer: String(body?.aiAnswer || "").trim(), page });
+  const r = await fetchImpl(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id: env.TELEGRAM_CHAT_ID, ...msg }),
+  });
+  if (!r.ok) return [502, { error: "the message could not be delivered, please try again later" }];
+  return [200, { ok: true }];
+}
+
 function cors(origin, env) {
   const allowed = (env.ALLOWED_ORIGINS || "").split(",").map(s => s.trim()).filter(Boolean);
   return allowed.includes(origin) ? { "access-control-allow-origin": origin, "access-control-allow-methods": "POST, OPTIONS",
@@ -88,14 +145,19 @@ export default {
     if (!h) return json({ error: "origin not allowed" }, 403);                       // hanya halaman portofolio yang boleh memanggil
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: h });
     const url = new URL(request.url);
-    if (request.method !== "POST" || url.pathname !== "/ask") return json({ error: "not found" }, 404, h);
-    if (env.RATE_LIMITER) {                                                            // per pengunjung; IP tidak disimpan
-      const ip = request.headers.get("cf-connecting-ip") || "unknown";
-      const { success } = await env.RATE_LIMITER.limit({ key: ip });
-      if (!success) return json({ error: "too many questions, please wait a minute" }, 429, h);
+    if (request.method !== "POST" || !["/ask", "/contact"].includes(url.pathname)) return json({ error: "not found" }, 404, h);
+    const ip = request.headers.get("cf-connecting-ip") || "unknown";
+    const limiter = url.pathname === "/contact" ? env.CONTACT_LIMITER : env.RATE_LIMITER;
+    if (limiter) {                                                                     // per pengunjung; IP tidak disimpan
+      const { success } = await limiter.limit({ key: ip });
+      if (!success) return json({ error: "too many messages, please wait a minute" }, 429, h);
     }
     let body;
     try { body = await request.json(); } catch { return json({ error: "invalid JSON" }, 400, h); }
+    if (url.pathname === "/contact") {
+      const [status, out] = await contactElson(body, env, deps);
+      return json(out, status, h);
+    }
     const q = String(body?.question || "").trim();
     if (!q) return json({ error: "question is empty" }, 400, h);
     if (q.length > MAX_Q) return json({ error: `question is longer than ${MAX_Q} characters` }, 400, h);

@@ -12,7 +12,15 @@ name = "RATE_LIMITER"
 namespace_id = "1001"
 simple = { limit = 5, period = 60 }
 
+# Pesan langsung ke Elson (Telegram): 2 pesan per menit per pengunjung
+[[ratelimits]]
+name = "CONTACT_LIMITER"
+namespace_id = "1002"
+simple = { limit = 2, period = 60 }
+
 # Secret (tidak di file ini): npx wrangler secret put GEMINI_API_KEY
+#                             npx wrangler secret put TELEGRAM_BOT_TOKEN
+#                             npx wrangler secret put TELEGRAM_CHAT_ID
 
 workers_dev = true      # alamat publik: https://portfolio-chat.elsonsaputra.workers.dev
 preview_urls = false    # tanpa alamat pratinjau tambahan

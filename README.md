@@ -20,7 +20,31 @@ portfolio page ──POST /ask──► Cloudflare Worker ──► BM25 search 
 | Prompt injection | "Ignore previous instructions"-style questions are refused; passages are framed as data |
 | Abuse and cost | Only the portfolio origin may call the Worker; 5 questions per minute per visitor; 300-character questions; 400-token answers |
 | Quota exhausted | Falls back to the most relevant passages, with links, instead of an error |
-| Privacy | The Worker stores nothing. Questions are sent to Google Gemini to write the answer; the page says so |
+| Privacy | The Worker stores nothing. Questions are sent to Google Gemini to write the answer; direct questions go only to Elson's Telegram, with consent |
+
+## Ask Elson directly
+
+When the AI can't answer (or a visitor simply prefers a person), the chat offers **Ask Elson directly**: the visitor writes a
+question, leaves an email or WhatsApp number and ticks a consent box. `POST /contact` forwards it to Elson's Telegram with a
+one-tap reply button (WhatsApp `wa.me` link with a prefilled greeting, or a Gmail compose link for email). Nothing is stored:
+the Worker only relays the message.
+
+| Guard | What it does |
+|---|---|
+| Consent | The form can't be sent without the visitor agreeing that their question and contact go to Elson |
+| Spam | Hidden honeypot field, 2 messages per minute per visitor, 5–500 characters, portfolio origin only |
+| Valid contact | Email, or a phone number normalised to WhatsApp format (`0812…` → `62812…`) |
+| Safe message | Visitor text is HTML-escaped before it reaches Telegram |
+
+Setup (once): create a bot with [@BotFather](https://t.me/BotFather), send it any message, then read your chat id from
+`https://api.telegram.org/bot<TOKEN>/getUpdates` (`message.chat.id`). Store both as secrets:
+
+```bash
+npx wrangler secret put TELEGRAM_BOT_TOKEN
+npx wrangler secret put TELEGRAM_CHAT_ID
+```
+
+Until they are set, `/contact` answers 503 and the page says direct messages aren't available.
 
 ## Knowledge base
 
@@ -31,9 +55,9 @@ public yet is skipped with a warning.
 
 ## Tests
 
-`npm test` runs 28 offline tests: a retrieval evaluation of 15 English and Indonesian questions that must find the right source in the
+`npm test` runs 36 offline tests: a retrieval evaluation of 15 English and Indonesian questions that must find the right source in the
 top three, and Worker behaviour with Gemini and the rate limiter mocked (citations, not-found, refusals without a model call,
-quota fallback, CORS, limits).
+quota fallback, CORS, limits) and the direct-message relay with Telegram mocked (validation, consent, honeypot, escaping, reply buttons).
 
 ## Deploy
 
