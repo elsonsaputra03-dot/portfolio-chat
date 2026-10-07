@@ -1,6 +1,13 @@
 name = "portfolio-chat"
 main = "src/worker.js"
 compatibility_date = "2026-09-01"
+workers_dev = true      # alamat publik: https://portfolio-chat.elsonsaputra.workers.dev
+preview_urls = false    # tanpa alamat pratinjau tambahan
+
+# Secret (tidak di file ini): npx wrangler secret put GEMINI_API_KEY
+#                             npx wrangler secret put TELEGRAM_BOT_TOKEN
+#                             npx wrangler secret put TELEGRAM_CHAT_ID
+# Catatan TOML: kunci tingkat atas harus di atas semua blok [..] / [[..]].
 
 [vars]
 ALLOWED_ORIGINS = "https://elsonsaputra03-dot.github.io"
@@ -17,10 +24,3 @@ simple = { limit = 5, period = 60 }
 name = "CONTACT_LIMITER"
 namespace_id = "1002"
 simple = { limit = 2, period = 60 }
-
-# Secret (tidak di file ini): npx wrangler secret put GEMINI_API_KEY
-#                             npx wrangler secret put TELEGRAM_BOT_TOKEN
-#                             npx wrangler secret put TELEGRAM_CHAT_ID
-
-workers_dev = true      # alamat publik: https://portfolio-chat.elsonsaputra.workers.dev
-preview_urls = false    # tanpa alamat pratinjau tambahan
