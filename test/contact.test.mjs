@@ -46,7 +46,7 @@ test("rejects missing consent, bad contact, short or long text; honeypot is acce
   assert.equal((await contactElson({ ...ok, contact: "nope" }, ENV, { fetchImpl: f }))[0], 400);
   assert.equal((await contactElson({ ...ok, question: "hi" }, ENV, { fetchImpl: f }))[0], 400);
   assert.equal((await contactElson({ ...ok, question: "x".repeat(501) }, ENV, { fetchImpl: f }))[0], 400);
-  assert.deepEqual(await contactElson({ ...ok, website: "spam.example" }, ENV, { fetchImpl: f }), [200, { ok: true }]);
+  assert.deepEqual(await contactElson({ ...ok, ap_extra: "spam.example" }, ENV, { fetchImpl: f }), [200, { ok: true }]);
   assert.equal(seen.length, 0);
 });
 

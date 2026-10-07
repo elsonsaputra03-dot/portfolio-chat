@@ -114,7 +114,8 @@ export function telegramMessage({ name, contact, question, aiAnswer, page }) {
 
 export async function contactElson(body, env, { fetchImpl = fetch } = {}) {
   if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) return [503, { error: "direct messages are not set up yet" }];
-  if (String(body?.website || "")) return [200, { ok: true }];                    // honeypot: bot mengisi kolom tersembunyi
+  // honeypot: bot mengisi kolom tersembunyi. Nama kolom sengaja tidak dikenali autofill/password manager (dulu "website").
+  if (String(body?.ap_extra || body?.website || "")) { console.log("contact: dropped by honeypot"); return [200, { ok: true }]; }
   const question = String(body?.question || "").trim(), name = String(body?.name || "").trim().slice(0, 60);
   if (question.length < 5) return [400, { error: "please write your question" }];
   if (question.length > MAX_MSG) return [400, { error: `message is longer than ${MAX_MSG} characters` }];
@@ -126,7 +127,12 @@ export async function contactElson(body, env, { fetchImpl = fetch } = {}) {
   const r = await fetchImpl(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
     method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id: env.TELEGRAM_CHAT_ID, ...msg }),
   });
-  if (!r.ok) return [502, { error: "the message could not be delivered, please try again later" }];
+  // log tanpa isi pesan/kontak: cukup status untuk `npx wrangler tail`
+  if (!r.ok) {
+    console.log("contact: telegram error", r.status, (await r.text().catch(() => "")).slice(0, 200));
+    return [502, { error: "the message could not be delivered, please try again later" }];
+  }
+  console.log("contact: delivered to telegram");
   return [200, { ok: true }];
 }
 
