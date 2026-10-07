@@ -32,7 +32,7 @@ the Worker only relays the message.
 | Guard | What it does |
 |---|---|
 | Consent | The form can't be sent without the visitor agreeing that their question and contact go to Elson |
-| Spam | Hidden honeypot field, 2 messages per minute per visitor, 5–500 characters, portfolio origin only |
+| Spam | Forms sent within 2 seconds of opening are dropped (a hidden honeypot field was removed: browser autofill filled it), 2 messages per minute per visitor, 5–500 characters, portfolio origin only |
 | Valid contact | Email, or a phone number normalised to WhatsApp format (`0812…` → `62812…`) |
 | Safe message | Visitor text is HTML-escaped before it reaches Telegram |
 
@@ -55,7 +55,7 @@ public yet is skipped with a warning.
 
 ## Tests
 
-`npm test` runs 36 offline tests: a retrieval evaluation of 15 English and Indonesian questions that must find the right source in the
+`npm test` runs 37 offline tests: a retrieval evaluation of 15 English and Indonesian questions that must find the right source in the
 top three, and Worker behaviour with Gemini and the rate limiter mocked (citations, not-found, refusals without a model call,
 quota fallback, CORS, limits) and the direct-message relay with Telegram mocked (validation, consent, honeypot, escaping, reply buttons).
 

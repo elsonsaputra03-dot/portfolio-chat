@@ -39,14 +39,14 @@ test("email contact gets a Gmail compose button (Telegram buttons cannot open ma
   assert.ok(btn.url.startsWith("https://mail.google.com/mail/?view=cm&fs=1&to=hr%40example.com"));
 });
 
-test("rejects missing consent, bad contact, short or long text; honeypot is accepted silently without sending", async () => {
+test("rejects missing consent, bad contact, short or long text; a form sent too fast (bot) is accepted silently without sending", async () => {
   const seen = [];
   const f = tg(seen);
   assert.equal((await contactElson({ ...ok, consent: false }, ENV, { fetchImpl: f }))[0], 400);
   assert.equal((await contactElson({ ...ok, contact: "nope" }, ENV, { fetchImpl: f }))[0], 400);
   assert.equal((await contactElson({ ...ok, question: "hi" }, ENV, { fetchImpl: f }))[0], 400);
   assert.equal((await contactElson({ ...ok, question: "x".repeat(501) }, ENV, { fetchImpl: f }))[0], 400);
-  assert.deepEqual(await contactElson({ ...ok, ap_extra: "spam.example" }, ENV, { fetchImpl: f }), [200, { ok: true }]);
+  assert.deepEqual(await contactElson({ ...ok, elapsed_ms: 300 }, ENV, { fetchImpl: f }), [200, { ok: true }]);   // bot: terlalu cepat
   assert.equal(seen.length, 0);
 });
 
@@ -65,4 +65,10 @@ test("POST /contact through the Worker: origin check and its own rate limiter", 
   assert.equal((await worker.fetch(mk(ORIGIN), limited, {}, { fetchImpl: tg(seen) })).status, 429);
   const r = await worker.fetch(mk(ORIGIN), ENV, {}, { fetchImpl: tg(seen) });
   assert.equal(r.status, 200); assert.equal(seen.length, 1);
+});
+
+test("autofill in old hidden fields no longer blocks a real visitor", async () => {
+  const seen = [];
+  const [status] = await contactElson({ ...ok, website: "x", ap_extra: "y", elapsed_ms: 15000 }, ENV, { fetchImpl: tg(seen) });
+  assert.equal(status, 200); assert.equal(seen.length, 1);
 });

@@ -114,8 +114,9 @@ export function telegramMessage({ name, contact, question, aiAnswer, page }) {
 
 export async function contactElson(body, env, { fetchImpl = fetch } = {}) {
   if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) return [503, { error: "direct messages are not set up yet" }];
-  // honeypot: bot mengisi kolom tersembunyi. Nama kolom sengaja tidak dikenali autofill/password manager (dulu "website").
-  if (String(body?.ap_extra || body?.website || "")) { console.log("contact: dropped by honeypot"); return [200, { ok: true }]; }
+  // anti-bot: form yang dikirim < 2 detik setelah dibuka bukan diisi manusia (honeypot dihapus: terisi autofill browser)
+  const elapsed = Number(body?.elapsed_ms);
+  if (Number.isFinite(elapsed) && elapsed < 2000) { console.log("contact: dropped, sent too fast", elapsed); return [200, { ok: true }]; }
   const question = String(body?.question || "").trim(), name = String(body?.name || "").trim().slice(0, 60);
   if (question.length < 5) return [400, { error: "please write your question" }];
   if (question.length > MAX_MSG) return [400, { error: `message is longer than ${MAX_MSG} characters` }];
