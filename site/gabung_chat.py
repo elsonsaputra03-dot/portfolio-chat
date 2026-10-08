@@ -8,7 +8,7 @@ import re, shutil, sys
 from pathlib import Path
 
 START, END = "<!-- ask-portfolio:start -->", "<!-- ask-portfolio:end -->"
-CHIPS = ["What did Elson build with Kafka?", "Is he Google Cloud certified?", "What is his current role?", "Pengalaman di Huawei dan Ericsson?"]
+CHIPS = ["What did Elson build with Kafka?", "Is he Google Cloud certified?", "What was his most recent role?", "Pengalaman di Huawei dan Ericsson?"]
 SPARK = ('<svg class="ap-spark" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2l2.6 8.4L27 13l-8.4 2.6L16 24l-2.6-8.4L5 13l8.4-2.6z"/>'
          '<path d="M26 20l1.1 3.4 3.4 1.1-3.4 1.1L26 29l-1.1-3.4-3.4-1.1 3.4-1.1z"/><path d="M6 21l.8 2.2 2.2.8-2.2.8L6 27l-.8-2.2-2.2-.8 2.2-.8z"/></svg>')
 CSS = """
