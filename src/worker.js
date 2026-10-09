@@ -2,6 +2,7 @@
 // mode: llm (jawaban Gemini dengan sitasi) | extractive (kuota/error: potongan sumber saja) | refused | not_found
 import kb from "./kb.json" with { type: "json" };
 import { search } from "./retrieve.js";
+import { askData } from "./askdata.js";
 
 const MAX_Q = 300;
 const PERSONAL = /\b(salary|salaries|gaji|pay|income|penghasilan|contract|kontrak|resign|religion|agama|married|menikah|age|umur|usia|address|alamat|phone|telepon|nomor hp|whatsapp|ktp|nik|password|kata sandi)\b/i;
@@ -139,7 +140,7 @@ export async function contactElson(body, env, { fetchImpl = fetch } = {}) {
 
 function cors(origin, env) {
   const allowed = (env.ALLOWED_ORIGINS || "").split(",").map(s => s.trim()).filter(Boolean);
-  return allowed.includes(origin) ? { "access-control-allow-origin": origin, "access-control-allow-methods": "POST, OPTIONS",
+  return allowed.includes(origin) ? { "access-control-allow-origin": origin, "access-control-allow-methods": "GET, POST, OPTIONS",
                                       "access-control-allow-headers": "content-type", vary: "Origin" } : null;
 }
 
@@ -152,15 +153,26 @@ export default {
     if (!h) return json({ error: "origin not allowed" }, 403);                       // hanya halaman portofolio yang boleh memanggil
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: h });
     const url = new URL(request.url);
-    if (request.method !== "POST" || !["/ask", "/contact"].includes(url.pathname)) return json({ error: "not found" }, 404, h);
+    // Ask the Data (versi publik, snapshot per jam): kontrak sama dengan API lokal FastAPI (/api/health, /api/ask)
+    if (url.pathname === "/api/health" && request.method === "GET") return json({ status: "ok", mode: "public-snapshot" }, 200, h);
+    if (request.method !== "POST" || !["/ask", "/contact", "/api/ask"].includes(url.pathname)) return json({ error: "not found" }, 404, h);
     const ip = request.headers.get("cf-connecting-ip") || "unknown";
-    const limiter = url.pathname === "/contact" ? env.CONTACT_LIMITER : env.RATE_LIMITER;
+    const limiter = url.pathname === "/contact" ? env.CONTACT_LIMITER : url.pathname === "/api/ask" ? (env.ASK_DATA_LIMITER || env.RATE_LIMITER) : env.RATE_LIMITER;
     if (limiter) {                                                                     // per pengunjung; IP tidak disimpan
       const { success } = await limiter.limit({ key: ip });
       if (!success) return json({ error: "too many messages, please wait a minute" }, 429, h);
     }
     let body;
     try { body = await request.json(); } catch { return json({ error: "invalid JSON" }, 400, h); }
+    if (url.pathname === "/api/ask") {
+      const q = String(body?.question || "").trim(), c = String(body?.context || "").trim().slice(0, MAX_Q);
+      if (q.length < 3) return json({ detail: "pertanyaan terlalu pendek" }, 400, h);
+      if (q.length > MAX_Q) return json({ detail: `pertanyaan lebih dari ${MAX_Q} karakter` }, 400, h);
+      if (INJECTION.test(q)) return json({ answer: "Saya hanya menjawab pertanyaan tentang data platform ini.", tools: [], facts: [], data: [],
+                                           sources: [], focus: null, model: "aturan", mode: "refused", router: {} }, 200, h);
+      try { return json(await askData(q, c, env, deps), 200, h); }
+      catch (e) { console.log("ask-data error", String(e).slice(0, 200)); return json({ detail: "data snapshot sedang tidak bisa dibaca, coba lagi sebentar" }, 503, h); }
+    }
     if (url.pathname === "/contact") {
       const [status, out] = await contactElson(body, env, deps);
       return json(out, status, h);

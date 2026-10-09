@@ -24,3 +24,9 @@ simple = { limit = 5, period = 60 }
 name = "CONTACT_LIMITER"
 namespace_id = "1002"
 simple = { limit = 2, period = 60 }
+
+# Ask the Data versi publik: 6 pertanyaan per menit per pengunjung
+[[ratelimits]]
+name = "ASK_DATA_LIMITER"
+namespace_id = "1003"
+simple = { limit = 6, period = 60 }
