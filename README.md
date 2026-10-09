@@ -22,6 +22,22 @@ portfolio page ──POST /ask──► Cloudflare Worker ──► BM25 search 
 | Quota exhausted | Falls back to the most relevant passages, with links, instead of an error |
 | Privacy | The Worker stores nothing. Questions are sent to Google Gemini to write the answer; direct questions go only to Elson's Telegram, with consent |
 
+## Ask the Data (public endpoint)
+
+The same Worker serves the public version of [Ask the Data](https://elsonsaputra03-dot.github.io/indo-realtime-monitor/tanya.html):
+`GET /api/health` and `POST /api/ask {question, context}`, the same contract as the local FastAPI API, so the page works against either.
+
+| | Local version | Public version (this Worker) |
+|---|---|---|
+| Data | ClickHouse, streaming | Hourly JSON snapshots built by GitHub Actions |
+| Model | qwen2.5:3b on Ollama (laptop GPU) | Gemini 2.5 Flash |
+| Tools | 10, Python | The same 10, ported to JavaScript (`src/askdata.js`) |
+
+The guardrails carry over: places come only from a gazetteer (`ask_gazetteer.json`), never from the model; a rule router runs
+first and Gemini only picks tools when it finds none; every number is computed by code into fact sentences and the model only
+phrases them; if Gemini is unavailable the visitor gets the facts. Geospatial work (which regency a hotspot or epicentre falls in)
+is precomputed with shapely in the hourly snapshot (`ask_index.json`), so the Worker needs no polygons. 6 questions per minute per visitor.
+
 ## Ask Elson directly
 
 When the AI can't answer (or a visitor simply prefers a person), the chat offers **Ask Elson directly**: the visitor writes a
@@ -55,9 +71,9 @@ public yet is skipped with a warning.
 
 ## Tests
 
-`npm test` runs 37 offline tests: a retrieval evaluation of 15 English and Indonesian questions that must find the right source in the
+`npm test` runs 50 offline tests: a retrieval evaluation of 15 English and Indonesian questions that must find the right source in the
 top three, and Worker behaviour with Gemini and the rate limiter mocked (citations, not-found, refusals without a model call,
-quota fallback, CORS, limits) and the direct-message relay with Telegram mocked (validation, consent, honeypot, escaping, reply buttons).
+quota fallback, CORS, limits) and the direct-message relay with Telegram mocked (validation, consent, anti-bot timing, escaping, reply buttons), and Ask the Data on fixture snapshots (places, tools, follow-ups, quota fallback, routes).
 
 ## Deploy
 
